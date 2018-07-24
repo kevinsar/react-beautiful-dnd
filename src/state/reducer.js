@@ -1,5 +1,6 @@
 // @flow
 import memoizeOne from 'memoize-one';
+import { type Position } from 'css-box-model';
 import type {
   Action,
   State,
@@ -20,7 +21,6 @@ import type {
   Phase,
   DraggableLocation,
   CurrentDragPositions,
-  Position,
   InitialDragPositions,
   LiftRequest,
   Viewport,
@@ -95,7 +95,7 @@ const move = ({
     const result: CurrentDragPositions = {
       offset,
       selection: clientSelection,
-      center: add(offset, initial.client.center),
+      borderBoxCenter: add(offset, initial.client.borderBoxCenter),
     };
     return result;
   })();
@@ -103,7 +103,7 @@ const move = ({
   const page: CurrentDragPositions = {
     selection: add(client.selection, currentWindowScroll),
     offset: add(client.offset, currentWindowScroll),
-    center: add(client.center, currentWindowScroll),
+    borderBoxCenter: add(client.borderBoxCenter, currentWindowScroll),
   };
 
   const current: CurrentDrag = {
@@ -115,7 +115,7 @@ const move = ({
   };
 
   const newImpact: DragImpact = (impact || getDragImpact({
-    pageCenter: page.center,
+    pageBorderBoxCenter: page.borderBoxCenter,
     draggable: state.dimension.draggable[initial.descriptor.id],
     draggables: state.dimension.draggable,
     droppables: state.dimension.droppable,
@@ -266,13 +266,13 @@ export default (state: State = clean('IDLE'), action: Action): State => {
         return existing;
       }
 
-      const newDrag: DragState = ({
+      const newDrag: DragState = {
         ...existing,
         current: {
           ...existing.current,
           hasCompletedFirstBulkPublish: true,
         },
-      }: any);
+      };
 
       return newDrag;
     })();
@@ -305,7 +305,7 @@ export default (state: State = clean('IDLE'), action: Action): State => {
     const { id, client, viewport, autoScrollMode } = action.payload;
     const page: InitialDragPositions = {
       selection: add(client.selection, viewport.scroll),
-      center: add(client.center, viewport.scroll),
+      borderBoxCenter: add(client.borderBoxCenter, viewport.scroll),
     };
 
     const draggable: ?DraggableDimension = state.dimension.draggable[id];
@@ -328,12 +328,12 @@ export default (state: State = clean('IDLE'), action: Action): State => {
     const current: CurrentDrag = {
       client: {
         selection: client.selection,
-        center: client.center,
+        borderBoxCenter: client.borderBoxCenter,
         offset: origin,
       },
       page: {
         selection: page.selection,
-        center: page.center,
+        borderBoxCenter: page.borderBoxCenter,
         offset: origin,
       },
       viewport,
@@ -424,13 +424,16 @@ export default (state: State = clean('IDLE'), action: Action): State => {
     const { id, isEnabled } = action.payload;
     const target = state.dimension.droppable[id];
 
+    // This can happen if the enabled state changes on the droppable between
+    // a onDragStart and the initial publishing of the Droppable.
+    // The isEnabled state will be correctly populated when the Droppable dimension
+    // is published. Therefore we do not need to log any error here
     if (!target) {
-      console.warn('cannot update enabled state for droppable as it has not yet been collected');
       return state;
     }
 
     if (target.isEnabled === isEnabled) {
-      console.warn(`trying to set droppable isEnabled to ${String(isEnabled)} but it is already ${String(isEnabled)}`);
+      console.warn(`Trying to set droppable isEnabled to ${String(isEnabled)} but it is already ${String(isEnabled)}`);
       return state;
     }
 
@@ -526,41 +529,68 @@ export default (state: State = clean('IDLE'), action: Action): State => {
       return clean();
     }
 
-    const existing: DragState = state.drag;
+    const drag: DragState = state.drag;
     const isMovingForward: boolean = action.type === 'MOVE_FORWARD';
 
-    if (!existing.impact.destination) {
-      console.error('cannot move if there is no previous destination');
-      return clean();
+    // This is possible to do when lifting in a disabled list
+    if (!drag.impact.destination) {
+      return state;
     }
 
+    const droppableId: DroppableId = drag.impact.destination.droppableId;
     const droppable: DroppableDimension = state.dimension.droppable[
-      existing.impact.destination.droppableId
+      droppableId
     ];
 
-    const result: ?MoveToNextResult = moveToNextIndex({
-      isMovingForward,
-      draggableId: existing.initial.descriptor.id,
-      droppable,
-      draggables: state.dimension.draggable,
-      previousPageCenter: existing.current.page.center,
-      previousImpact: existing.impact,
-      viewport: existing.current.viewport,
-    });
+    const current: CurrentDrag = drag.current;
+    const descriptor: DraggableDescriptor = drag.initial.descriptor;
+    const draggableId: DraggableId = descriptor.id;
+    const previousPageBorderBoxCenter: Position = current.page.borderBoxCenter;
+    const home: DraggableLocation = {
+      index: descriptor.index,
+      droppableId: descriptor.droppableId,
+    };
 
-    // cannot move anyway (at the beginning or end of a list)
+    const params = {
+      isMovingForward,
+      draggableId,
+      draggables: state.dimension.draggable,
+      previousImpact: drag.impact,
+      viewport: current.viewport,
+    };
+
+    // First tries to move through the list.
+    // If failed (because at the beginning or end of a list)
+    // Make attempt to move across opposite axis (vertical if lists are placed horizontally)
+    const result: ?MoveToNextResult = moveToNextIndex({
+      droppable,
+      previousPageBorderBoxCenter,
+      ...params,
+    }) || {
+      scrollJumpRequest: null,
+      ...moveCrossAxis({
+        pageBorderBoxCenter: previousPageBorderBoxCenter,
+        droppableId,
+        home,
+        droppables: state.dimension.droppable,
+        oppositeAxis: true,
+        ...params,
+      }),
+    };
+
     if (!result) {
       return state;
     }
 
     const impact: DragImpact = result.impact;
-    const page: Position = result.pageCenter;
-    const client: Position = subtract(page, existing.current.viewport.scroll);
+    const clientBorderBoxCenter: Position = subtract(
+      result.pageBorderBoxCenter, drag.current.viewport.scroll
+    );
 
     return move({
       state,
       impact,
-      clientSelection: client,
+      clientSelection: clientBorderBoxCenter,
       shouldAnimate: true,
       scrollJumpRequest: result.scrollJumpRequest,
     });
@@ -572,21 +602,26 @@ export default (state: State = clean('IDLE'), action: Action): State => {
       return clean();
     }
 
-    if (!state.drag) {
+    const drag: ?DragState = state.drag;
+    if (!drag) {
       console.error('cannot move cross axis if there is no drag information');
       return clean();
     }
 
-    if (!state.drag.impact.destination) {
-      console.error('cannot move cross axis if not in a droppable');
-      return clean();
-    }
+    // It is possible to lift a draggable in a disabled droppable
+    // In which case - use the home droppable id
+    const droppableId: DroppableId = (() => {
+      if (drag.impact.destination) {
+        return drag.impact.destination.droppableId;
+      }
 
-    const current: CurrentDrag = state.drag.current;
-    const descriptor: DraggableDescriptor = state.drag.initial.descriptor;
+      return drag.initial.descriptor.droppableId;
+    })();
+
+    const current: CurrentDrag = drag.current;
+    const descriptor: DraggableDescriptor = drag.initial.descriptor;
     const draggableId: DraggableId = descriptor.id;
-    const center: Position = current.page.center;
-    const droppableId: DroppableId = state.drag.impact.destination.droppableId;
+    const pageBorderBoxCenter: Position = current.page.borderBoxCenter;
     const home: DraggableLocation = {
       index: descriptor.index,
       droppableId: descriptor.droppableId,
@@ -594,13 +629,13 @@ export default (state: State = clean('IDLE'), action: Action): State => {
 
     const result: ?MoveCrossAxisResult = moveCrossAxis({
       isMovingForward: action.type === 'CROSS_AXIS_MOVE_FORWARD',
-      pageCenter: center,
+      pageBorderBoxCenter,
       draggableId,
       droppableId,
       home,
       draggables: state.dimension.draggable,
       droppables: state.dimension.droppable,
-      previousImpact: state.drag.impact,
+      previousImpact: drag.impact,
       viewport: current.viewport,
     });
 
@@ -608,7 +643,7 @@ export default (state: State = clean('IDLE'), action: Action): State => {
       return state;
     }
 
-    const page: Position = result.pageCenter;
+    const page: Position = result.pageBorderBoxCenter;
     const client: Position = subtract(page, current.viewport.scroll);
 
     return move({

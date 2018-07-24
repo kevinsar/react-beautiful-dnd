@@ -10,7 +10,6 @@ node_modules/
 
 # generated files
 lib/
-dist/
 esm/
 
 # generated site
