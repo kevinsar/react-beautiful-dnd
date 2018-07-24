@@ -22,6 +22,7 @@ type GetBestDroppableArgs = {|
   // all the droppables in the system
   droppables: DroppableDimensionMap,
   viewport: Viewport,
+  customAxis?: Axis,
 |}
 
 const getSafeClipped = (droppable: DroppableDimension): Area => {
@@ -39,6 +40,7 @@ export default ({
   source,
   droppables,
   viewport,
+  customAxis,
 }: GetBestDroppableArgs): ?DroppableDimension => {
   const sourceClipped: ?Area = source.viewport.clipped;
 
@@ -46,7 +48,7 @@ export default ({
     return null;
   }
 
-  const axis: Axis = source.axis;
+  const axis: Axis = customAxis || source.axis;
   const isBetweenSourceClipped = isWithin(
     sourceClipped[axis.start],
     sourceClipped[axis.end]

@@ -6,6 +6,8 @@ import noImpact from '../no-impact';
 import getDraggablesInsideDroppable from '../get-draggables-inside-droppable';
 
 
+import { makeOppositeAxis } from '../axis';
+
 export default (function (_ref) {
   var isMovingForward = _ref.isMovingForward,
       pageCenter = _ref.pageCenter,
@@ -15,17 +17,20 @@ export default (function (_ref) {
       draggables = _ref.draggables,
       droppables = _ref.droppables,
       previousImpact = _ref.previousImpact,
-      viewport = _ref.viewport;
+      viewport = _ref.viewport,
+      oppositeAxis = _ref.oppositeAxis;
 
   var draggable = draggables[draggableId];
   var source = droppables[droppableId];
+  var axis = oppositeAxis ? makeOppositeAxis(source.axis) : source.axis;
 
   var destination = getBestCrossAxisDroppable({
     isMovingForward: isMovingForward,
     pageCenter: pageCenter,
     source: source,
     droppables: droppables,
-    viewport: viewport
+    viewport: viewport,
+    customAxis: axis
   });
 
   if (!destination) {
@@ -35,7 +40,7 @@ export default (function (_ref) {
   var insideDestination = getDraggablesInsideDroppable(destination, draggables);
 
   var target = getClosestDraggable({
-    axis: destination.axis,
+    axis: axis,
     pageCenter: pageCenter,
     destination: destination,
     insideDestination: insideDestination,

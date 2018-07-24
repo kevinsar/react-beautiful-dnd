@@ -23,3 +23,10 @@ export var horizontal = {
   crossAxisEnd: 'bottom',
   crossAxisSize: 'height'
 };
+
+export var makeOppositeAxis = function makeOppositeAxis(axis) {
+  if (axis.direction === 'horizontal') {
+    return vertical;
+  }
+  return horizontal;
+};

@@ -2248,6 +2248,13 @@ var horizontal = {
   crossAxisSize: 'height'
 };
 
+var makeOppositeAxis = function makeOppositeAxis(axis) {
+  if (axis.direction === 'horizontal') {
+    return vertical;
+  }
+  return horizontal;
+};
+
 var getMaxScroll = (function (_ref) {
   var scrollHeight = _ref.scrollHeight,
       scrollWidth = _ref.scrollWidth,
@@ -3255,7 +3262,8 @@ var getBestCrossAxisDroppable = (function (_ref) {
       pageCenter = _ref.pageCenter,
       source = _ref.source,
       droppables = _ref.droppables,
-      viewport = _ref.viewport;
+      viewport = _ref.viewport,
+      customAxis = _ref.customAxis;
 
   var sourceClipped = source.viewport.clipped;
 
@@ -3263,7 +3271,7 @@ var getBestCrossAxisDroppable = (function (_ref) {
     return null;
   }
 
-  var axis = source.axis;
+  var axis = customAxis || source.axis;
   var isBetweenSourceClipped = isWithin(sourceClipped[axis.start], sourceClipped[axis.end]);
 
   var candidates = _Object$keys(droppables).map(function (id) {
@@ -3600,17 +3608,20 @@ var moveCrossAxis = (function (_ref) {
       draggables = _ref.draggables,
       droppables = _ref.droppables,
       previousImpact = _ref.previousImpact,
-      viewport = _ref.viewport;
+      viewport = _ref.viewport,
+      oppositeAxis = _ref.oppositeAxis;
 
   var draggable = draggables[draggableId];
   var source = droppables[droppableId];
+  var axis = oppositeAxis ? makeOppositeAxis(source.axis) : source.axis;
 
   var destination = getBestCrossAxisDroppable({
     isMovingForward: isMovingForward,
     pageCenter: pageCenter,
     source: source,
     droppables: droppables,
-    viewport: viewport
+    viewport: viewport,
+    customAxis: axis
   });
 
   if (!destination) {
@@ -3620,7 +3631,7 @@ var moveCrossAxis = (function (_ref) {
   var insideDestination = getDraggablesInsideDroppable(destination, draggables);
 
   var target = getClosestDraggable({
-    axis: destination.axis,
+    axis: axis,
     pageCenter: pageCenter,
     destination: destination,
     insideDestination: insideDestination,
@@ -4093,24 +4104,45 @@ var reducer = (function () {
       return clean();
     }
 
-    var existing = state.drag;
+    var _drag4 = state.drag;
     var isMovingForward = action.type === 'MOVE_FORWARD';
 
-    if (!existing.impact.destination) {
+    if (!_drag4.impact.destination) {
       return clean();
     }
 
-    var droppable = state.dimension.droppable[existing.impact.destination.droppableId];
+    var droppableId = _drag4.impact.destination.droppableId;
+    var droppable = state.dimension.droppable[droppableId];
 
-    var _result = moveToNextIndex({
+    var _current = _drag4.current;
+    var _descriptor = _drag4.initial.descriptor;
+    var draggableId = _descriptor.id;
+    var previousPageBorderBoxCenter = _current.page.center;
+    var _home = {
+      index: _descriptor.index,
+      droppableId: _descriptor.droppableId
+    };
+
+    var params = {
       isMovingForward: isMovingForward,
-      draggableId: existing.initial.descriptor.id,
-      droppable: droppable,
+      draggableId: draggableId,
       draggables: state.dimension.draggable,
-      previousPageCenter: existing.current.page.center,
-      previousImpact: existing.impact,
-      viewport: existing.current.viewport
-    });
+      previousImpact: _drag4.impact,
+      viewport: _current.viewport
+    };
+
+    var _result = moveToNextIndex(_extends$2({
+      droppable: droppable,
+      previousPageBorderBoxCenter: previousPageBorderBoxCenter
+    }, params)) || _extends$2({
+      scrollJumpRequest: null
+    }, moveCrossAxis(_extends$2({
+      pageCenter: previousPageBorderBoxCenter,
+      droppableId: droppableId,
+      home: _home,
+      droppables: state.dimension.droppable,
+      oppositeAxis: true
+    }, params)));
 
     if (!_result) {
       return state;
@@ -4118,7 +4150,7 @@ var reducer = (function () {
 
     var _impact5 = _result.impact;
     var _page = _result.pageCenter;
-    var _client2 = subtract(_page, existing.current.viewport.scroll);
+    var _client2 = subtract(_page, _drag4.current.viewport.scroll);
 
     return move({
       state: state,
@@ -4142,26 +4174,26 @@ var reducer = (function () {
       return clean();
     }
 
-    var _current = state.drag.current;
-    var _descriptor = state.drag.initial.descriptor;
-    var draggableId = _descriptor.id;
-    var center = _current.page.center;
-    var droppableId = state.drag.impact.destination.droppableId;
-    var _home = {
-      index: _descriptor.index,
-      droppableId: _descriptor.droppableId
+    var _current2 = state.drag.current;
+    var _descriptor2 = state.drag.initial.descriptor;
+    var _draggableId = _descriptor2.id;
+    var center = _current2.page.center;
+    var _droppableId = state.drag.impact.destination.droppableId;
+    var _home2 = {
+      index: _descriptor2.index,
+      droppableId: _descriptor2.droppableId
     };
 
     var _result2 = moveCrossAxis({
       isMovingForward: action.type === 'CROSS_AXIS_MOVE_FORWARD',
       pageCenter: center,
-      draggableId: draggableId,
-      droppableId: droppableId,
-      home: _home,
+      draggableId: _draggableId,
+      droppableId: _droppableId,
+      home: _home2,
       draggables: state.dimension.draggable,
       droppables: state.dimension.droppable,
       previousImpact: state.drag.impact,
-      viewport: _current.viewport
+      viewport: _current2.viewport
     });
 
     if (!_result2) {
@@ -4169,7 +4201,7 @@ var reducer = (function () {
     }
 
     var _page2 = _result2.pageCenter;
-    var _client3 = subtract(_page2, _current.viewport.scroll);
+    var _client3 = subtract(_page2, _current2.viewport.scroll);
 
     return move({
       state: state,
