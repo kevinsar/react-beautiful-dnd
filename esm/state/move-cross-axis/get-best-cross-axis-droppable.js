@@ -20,7 +20,8 @@ export default (function (_ref) {
       pageCenter = _ref.pageCenter,
       source = _ref.source,
       droppables = _ref.droppables,
-      viewport = _ref.viewport;
+      viewport = _ref.viewport,
+      customAxis = _ref.customAxis;
 
   var sourceClipped = source.viewport.clipped;
 
@@ -28,7 +29,7 @@ export default (function (_ref) {
     return null;
   }
 
-  var axis = source.axis;
+  var axis = customAxis || source.axis;
   var isBetweenSourceClipped = isWithin(sourceClipped[axis.start], sourceClipped[axis.end]);
 
   var candidates = _Object$keys(droppables).map(function (id) {
