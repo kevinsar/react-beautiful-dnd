@@ -1462,7 +1462,7 @@ Alex Reardon - [@alexandereardon](https://twitter.com/alexandereardon)
 
 Jared Crowe - [@jaredjcrowe](https://twitter.com/jaredjcrowe)
 
-## Collaborators
+##  Collaborators
 
 Bogdan Chadkin - [@IAmTrySound](https://twitter.com/IAmTrySound)
 Luke Batchelor - [@alukebatchelor](https://twitter.com/alukebatchelor)
