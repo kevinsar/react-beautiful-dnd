@@ -563,21 +563,30 @@ export default (state: State = clean('IDLE'), action: Action): State => {
     // First tries to move through the list.
     // If failed (because at the beginning or end of a list)
     // Make attempt to move across opposite axis (vertical if lists are placed horizontally)
-    const result: ?MoveToNextResult = moveToNextIndex({
+    let result: ? MoveToNextResult;
+
+    result = moveToNextIndex({
       droppable,
       previousPageCenter,
       ...params,
-    }) || {
-      scrollJumpRequest: null,
-      ...moveCrossAxis({
+    });
+    if (!result) {
+      const crossAxisResult = moveCrossAxis({
         pageCenter: previousPageCenter,
         droppableId,
         home,
         droppables: state.dimension.droppable,
         oppositeAxis: true,
         ...params,
-      }),
-    };
+      });
+
+      if (crossAxisResult) {
+        result = {
+          scrollJumpRequest: null,
+          ...crossAxisResult,
+        };
+      }
+    }
 
     // cannot move anyway (at the beginning or end of a list)
     if (!result) {
