@@ -62,6 +62,10 @@ export default ({
     .filter((droppable: DroppableDimension): boolean => droppable.isEnabled)
     // Remove any droppables that are not partially visible
     .filter((droppable: DroppableDimension): boolean => {
+      if (!droppable.shouldClip) {
+        return true;
+      }
+
       const clipped: ?Area = droppable.viewport.clipped;
       // subject is not visible at all in frame
       if (!clipped) {
@@ -71,6 +75,10 @@ export default ({
       return isPartiallyVisibleThroughFrame(viewport.subject)(clipped);
     })
     .filter((droppable: DroppableDimension): boolean => {
+      if (!droppable.shouldClip) {
+        return true;
+      }
+
       const targetClipped: Area = getSafeClipped(droppable);
 
       if (isMovingForward) {
@@ -84,6 +92,10 @@ export default ({
     })
     // Must have some overlap on the main axis
     .filter((droppable: DroppableDimension): boolean => {
+      if (!droppable.shouldClip) {
+        return true;
+      }
+
       const targetClipped: Area = getSafeClipped(droppable);
 
       const isBetweenDestinationClipped = isWithin(

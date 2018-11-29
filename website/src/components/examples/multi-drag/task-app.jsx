@@ -12,7 +12,7 @@ import type { Entities } from './types';
 
 const Container = styled.div`
   display: flex;
-  flex-direction:column;
+  flex-direction: column;
   user-select: none;
 `;
 
