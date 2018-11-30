@@ -163,6 +163,7 @@ export const getDroppableDimension = ({
   padding = noSpacing,
   windowScroll = origin,
   isEnabled = true,
+  shouldClip = false
 }: GetDroppableArgs): DroppableDimension => {
   const client: BoxModel = {
     paddingBox,
@@ -216,6 +217,7 @@ export const getDroppableDimension = ({
     closestScrollable,
     subject,
     clipped,
+    shouldClip
   };
 
   const dimension: DroppableDimension = {
@@ -224,6 +226,7 @@ export const getDroppableDimension = ({
     axis: direction === 'vertical' ? vertical : horizontal,
     client,
     page,
+    shouldClip,
     viewport,
   };
 

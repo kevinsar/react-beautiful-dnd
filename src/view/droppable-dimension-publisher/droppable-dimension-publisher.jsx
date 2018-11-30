@@ -307,6 +307,7 @@ export default class DroppableDimensionPublisher extends Component<Props> {
       padding,
       windowScroll: getWindowScroll(),
       isEnabled: !isDropDisabled,
+      shouldClip: !ignoreContainerClipping,
     });
 
     return dimension;
